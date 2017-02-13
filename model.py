@@ -56,9 +56,6 @@ def hyp_net_inference(input):
     return outputA, outputB
 
 def hyp_net_loss(outputA, outputB, labels):
-    # TODO: need regularization???
-    # TODO: 1. need debug: maybe try tensor.eval()
-    #       2. calculate ground truth scores
     with tf.name_scope('Hyp_Loss') as scope:
         errorA = tf.square(tf.sub(outputA, labels), name="Error_A")
         errorB = tf.square(tf.sub(outputB, labels), name="Error_B")
@@ -136,7 +133,6 @@ def sel_net_loss(logits, labels):
     return tf.reduce_mean(cross_entropy)
 
 def sel_net_training(loss, learning_rate):
-    tf.summary.scalar('sel_loss', loss)
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(loss)
     return train_op
@@ -153,8 +149,8 @@ def least_square_error(output, labels):
     return loss
 
 def num(output, labels):
-    numeratro =  tf.reduce_sum(tf.mul(output, labels), axis=1)
-    return numeratro
+    numerator =  tf.reduce_sum(tf.mul(output, labels), axis=1)
+    return numerator
 
 def denom(output, labels):
     denominator = tf.mul(tf.sqrt(tf.reduce_sum(tf.mul(output, output), axis=1)), \
@@ -162,11 +158,9 @@ def denom(output, labels):
     return denominator
 
 
-def angular_error(output, labels):
+def angular_error(numerator, denominator):
     with tf.name_scope('Angular_error') as scope:
-        numeratro = num(output, labels)
-        denominator = denom(output, labels)
-        loss = tf.reduce_mean(tf.acos(tf.div(numeratro, denominator)))      
+        loss = tf.reduce_mean(tf.acos(tf.div(numerator, denominator)))      
     return loss
 
 def inference(outputA, outputB, output_sel):

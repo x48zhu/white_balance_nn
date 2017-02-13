@@ -31,9 +31,8 @@ def train_hyp_net(images, labels):
     print("learning rate: {0}".format(learning_rate))
 
     #### early stop
-
     non_improve_count = 0
-    min_error = sys.maxint
+    min_error = sys.maxsize
     early_stop_threshold = FLAGS.early_stop_threshold
     ####
 
@@ -57,12 +56,15 @@ def train_hyp_net(images, labels):
         hyp_eval_correct = hyp_net_evaluation(outputA, outputB, y)
         calc_gt_score = calc_ground_truth_score(outputA, outputB, y)
         
-        output = sel_net_inference(X)
-        sel_loss = sel_net_loss(output, ground_truth_score)
+        output_sel = sel_net_inference(X)
+        sel_loss = sel_net_loss(output_sel, ground_truth_score)
         sel_train_op = sel_net_training(sel_loss, learning_rate)
-        sel_eval_correct = sel_net_loss(output, ground_truth_score)
+        sel_eval_correct = sel_net_loss(output_sel, ground_truth_score)
 
-        final_infer = inference(outputA, outputB, output, y)
+        output = inference(outputA, outputB, output_sel)
+        numerator = num(output, y)
+        denominator = denom(output, y)
+        a_error = angular_error(numerator, denominator)
 
         init = tf.global_variables_initializer()
         sess = tf.Session()
@@ -81,18 +83,16 @@ def train_hyp_net(images, labels):
             print ('Training HypNet...')
             for i in range(FLAGS.epochs):
                 train_X, train_y = shuffle(train_X, train_y)
-                print("Epoch: %d" % (i + 1))
                 for j in range(num_batches_per_epoch):
                     offset = j * FLAGS.batch_size
                     start_time = time.time()
                     batch_X, batch_y = train_X[offset:offset + FLAGS.batch_size], train_y[offset:offset + FLAGS.batch_size]
-                    _, loss_value, summary = sess.run([hyp_train_op, hyp_loss, merged], feed_dict={X: batch_X, y: batch_y, ground_truth_score: batch_y})
+                    _, summary = sess.run([hyp_train_op, merged], feed_dict={X: batch_X, y: batch_y, ground_truth_score: batch_y})
                     duration = time.time() - start_time
-                    print("Hyp Training loss: %s" % (loss_value))
                 loss_value = sess.run(hyp_eval_correct, feed_dict={X:val_X, y:val_y})
                 loss_value = loss_value.item() # convert to float
-                print("Hyp Validation loss: %f" % (loss_value))
-                
+                print("Epoch: %d, Hyp Validation loss: %f" % (i + 1, loss_value))
+
                 if loss_value < min_error:
                     min_error = loss_value
                 else:
@@ -101,27 +101,27 @@ def train_hyp_net(images, labels):
                     break
 
                 summary_writer.add_summary(summary, i)
+            a,b = sess.run([outputA, outputB], feed_dict={X: val_X, y: val_y})
+            print("%s \n%s" % (a,b))
 
             loss_value = sess.run(hyp_eval_correct, feed_dict={X:test_X, y:test_y})
-            print("Finish training HypNet. Evaluation loss: %s" % loss_value)
-
-            gt_score_train = sess.run(calc_gt_score, feed_dict={X:train_X, y:train_y})
-            gt_score_val = sess.run(calc_gt_score, feed_dict={X:val_X, y:val_y})
+            print("Finish training HypNet. Test set loss: %s" % loss_value)
+            non_improve_count = 0
 
             print ('Training SelNet...')
+            gt_score_train = sess.run(calc_gt_score, feed_dict={X:train_X, y:train_y})
+            gt_score_val = sess.run(calc_gt_score, feed_dict={X:val_X, y:val_y})
             for i in range(FLAGS.epochs):
                 train_X, gt_score_train = shuffle(train_X, gt_score_train)
-                print("Epoch: %d" % (i + 1))
                 for j in range(num_batches_per_epoch):
                     offset = j * FLAGS.batch_size
                     start_time = time.time()
                     batch_X, batch_gt_score = train_X[offset:offset + FLAGS.batch_size], gt_score_train[offset:offset + FLAGS.batch_size]
-                    _, loss_value, summary = sess.run([sel_train_op, sel_loss, merged], feed_dict={X: batch_X, y: batch_gt_score, ground_truth_score: batch_gt_score})
+                    _, summary = sess.run([sel_train_op, merged], feed_dict={X: batch_X, y: batch_gt_score, ground_truth_score: batch_gt_score})
                     duration = time.time() - start_time
-                    print("Sel Training Loss: %s" % (loss_value))
-                loss_value = sess.run(hyp_eval_correct, feed_dict={X:val_X, y:val_y})
+                loss_value = sess.run(sel_eval_correct, feed_dict={X:val_X, y:gt_score_val, ground_truth_score: gt_score_val})
                 loss_value = loss_value.item() # convert to float
-                print("Hyp Validation loss: %f" % (loss_value))
+                print("Epoch: %d, Sel Validation loss: %f" % (i + 1, loss_value))
 
                 if loss_value < min_error:
                     min_error = loss_value
@@ -133,8 +133,11 @@ def train_hyp_net(images, labels):
                 summary_writer.add_summary(summary, i)
             # if pass:
                 # saver.save(sess, './hyp_net')
-            final_loss = sess.run(final_infer, feed_dict={X: test_X, y: test_y})
-            print("Test loss: %s" % (final_loss))
+            a,b,s,o,n,d,e = sess.run([outputA, outputB, output_sel, output, numerator, denominator, a_error], feed_dict={X: test_X, y: test_y})
+            print("%s \n%s \n%s" % (a,b,s))
+            print("#######\n%s \n%s \n%s" % (n,d,e))
+            print("#######\n%s \n%s" % (test_y,o))
+            # print("Test loss: %s" % (final_loss))
             summary_writer.close()
 
 
