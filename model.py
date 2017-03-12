@@ -1,10 +1,10 @@
 import math
+import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.layers import flatten
 
 mu = 0
 sigma = 0.1
-
 
 def hyp_net_inference(input):
     # Common Convolutional Layers
@@ -64,7 +64,7 @@ def hyp_net_loss(outputA, outputB, labels):
     with tf.name_scope('Hyp_Loss') as scope:
         errorA = tf.square(tf.subtract(outputA, labels), name="Error_A")
         errorB = tf.square(tf.subtract(outputB, labels), name="Error_B")
-        min_error = tf.select(tf.less(errorA, errorB), errorA, errorB, name="Min_Error")
+        min_error = tf.where(tf.less(errorA, errorB), errorA, errorB, name="Min_Error")
         loss = tf.reduce_mean(min_error, name="Loss")
     return loss
 
@@ -80,7 +80,7 @@ def hyp_net_evaluation(outputA, outputB, labels):
     with tf.name_scope('Hyp_Eval') as scope:
         errorA = tf.square(tf.subtract(outputA, labels), name="Error_A")
         errorB = tf.square(tf.subtract(outputB, labels), name="Error_B")
-        min_error = tf.select(tf.less(errorA, errorB), errorA, errorB, name="Min_Error")
+        min_error = tf.where(tf.less(errorA, errorB), errorA, errorB, name="Min_Error")
         loss = tf.reduce_mean(min_error, name="Loss")
     return loss
 
@@ -93,9 +93,9 @@ def calc_ground_truth_score(outputA, outputB, labels):
         errorB = tf.reduce_sum(tf.square(tf.subtract(outputB, labels)), 1)
         zeros = tf.zeros_like(errorA)
         ones = tf.ones_like(errorA)
-        chooseA = tf.pack([ones, zeros], axis=1)
-        chooseB = tf.pack([zeros, ones], axis=1)
-        ground_truth_score = tf.select(tf.less(errorA, errorB), chooseA, chooseB, name="One_Or_Zero")
+        chooseA = tf.stack([ones, zeros], axis=1)
+        chooseB = tf.stack([zeros, ones], axis=1)
+        ground_truth_score = tf.where(tf.less(errorA, errorB), chooseA, chooseB, name="One_Or_Zero")
     return ground_truth_score
 
 
@@ -139,7 +139,7 @@ def sel_net_inference(input):
 # Selection network uses multinomial logistic loss
 def sel_net_loss(logits, labels):
     with tf.name_scope('Sel_Loss') as scope:
-        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, labels)
+        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
     return tf.reduce_mean(cross_entropy)
 
 
@@ -150,12 +150,12 @@ def sel_net_training(loss, learning_rate):
 
 
 def sel_net_evaluation(logits, labels):
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, labels)
+    with tf.name_scope('Sel_Eval') as scope:
+        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, labels)
     return tf.reduce_mean(cross_entropy)
 
 
 #####################################################################################
-#
 ########################### least_square_error ######################################
 
 def least_square_error(output, labels):
@@ -167,20 +167,27 @@ def least_square_error(output, labels):
 ########################## angular_error ############################################
 
 def num(output, labels):
-    numerator = tf.reduce_sum(tf.mul(output, labels), axis=1)
+    numerator = tf.reduce_sum(tf.multiply(output, labels), axis=1)
     return numerator
 
 
 def denom(output, labels):
-    denominator = tf.mul(tf.sqrt(tf.reduce_sum(tf.mul(output, output), axis=1)), \
-                         tf.sqrt(tf.reduce_sum(tf.mul(labels, labels), axis=1)))
+    denominator = tf.multiply(tf.sqrt(tf.reduce_sum(tf.multiply(output, output), axis=1)),
+                         tf.sqrt(tf.reduce_sum(tf.multiply(labels, labels), axis=1)))
     return denominator
 
 
 def angular_error(numerator, denominator):
     with tf.name_scope('Angular_error') as scope:
-        loss = tf.reduce_mean(tf.acos(tf.div(numerator, denominator)))
+        loss = tf.reduce_mean(tf.acos(tf.div(numerator, denominator)), name="Loss")
     return loss
+
+def angular_error_scalar(output, labels):
+    def dot_product(a, b):
+        return np.sum(np.multiply(a, b))
+    numerator = dot_product(output, labels)
+    denominator = math.sqrt(dot_product(output, output)) * math.sqrt(dot_product(labels, labels))
+    return numerator / denominator
 
 
 #####################################################################################
@@ -198,7 +205,7 @@ def inference(outputA, outputB, output_sel):
         The final illuminant estimation for the patches, dimension nx2
     """
     with tf.name_scope("Inference") as scope:
-        output = tf.select(output_sel[:, 0] > output_sel[:, 1], outputA, outputB)
+        output = tf.where(output_sel[:, 0] > output_sel[:, 1], outputA, outputB, name="Select")
     return output
 
 

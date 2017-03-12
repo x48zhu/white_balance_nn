@@ -40,10 +40,10 @@ output_patch = inference(outputA, outputB, output_sel)
 # pooling on all the local illuminant estimates of the image, without resort- ing to additional learning,
 # In the future, if necessary, consider using SVR-RBF in "Single and Multiple Illuminant Estimation Using Convolutional
 # Neural Networks"
-output_image = np.median(output_patch, axis=1)
-numerator = num(output_image, y)
-denominator = denom(output_image, y)
-angular_error_op = angular_error(numerator, denominator)
+# output_image = np.median(output_patch, axis=1)
+# numerator = num(output_image, y)
+# denominator = denom(output_image, y)
+# angular_error_op = angular_error(numerator, denominator)
 
 
 def evaluate(X_data, y_data):
@@ -53,8 +53,9 @@ def evaluate(X_data, y_data):
     # For every evaluate image, split it into patches
     for i in range(len(X_data)):
         patches, labels = np.array(split_to_patches(X_data[i], y_data))
-        angular_error_value = sess.run(angular_error_op, feed_dict={X: patches, y: labels})
-        angular_losses.append(angular_error_value.item())
+        local_estimation = sess.run(output_patch, feed_dict={X: patches, y: labels})
+        angular_loss = angular_error_scalar(local_estimation.eval(), labels)
+        angular_losses.append(angular_loss)
     return angular_losses
 
 
@@ -72,8 +73,7 @@ def training(images, labels):
 
     with tf.Graph().as_default():
 
-        global_step = tf.get_variable('global_step', [], trainable=False,
-                                      initializer=tf.constant_initializer(0))
+        global_step = tf.get_variable('global_step', [], trainable=False, initializer=tf.constant_initializer(0))
 
         init = tf.global_variables_initializer()
         saver = tf.train.Saver()
@@ -116,6 +116,7 @@ def training(images, labels):
             print("%s \n%s" % (a, b))
 
             loss_value = sess.run(hyp_eval_correct, feed_dict={X: test_X, y: test_y})
+            # Note the Test set loss is the lease square error based on the best estimation of A and B
             print("Finish training HypNet. Test set loss: %s" % loss_value)
 
             print('Training SelNet...')
@@ -147,12 +148,13 @@ def training(images, labels):
 
                 summary_writer.add_summary(summary, i)
             saver.save(sess, check_ptr_dir)
-            a, b, s, o, n, d, e = sess.run(
-                [outputA, outputB, output_sel, output_patch, numerator, denominator, angular_error_op],
-                feed_dict={X: test_X, y: test_y})
-            print("%s \n%s \n%s" % (a, b, s))
-            print("#######\n%s \n%s \n%s" % (n, d, e))
-            print("#######\n%s \n%s" % (test_y, o))
+            # Check on the patch output on one test image
+            a, b, s, o = sess.run([outputA, outputB, output_sel, output_patch], feed_dict={X: test_X[0], y: test_y[0]})
+            print("%s \n%s \n%s \n%s" % (a, b, s, o))
+            angular_errors = evaluate(test_X, test_y)
+            mean_error = np.mean(angular_errors)
+            median_error = np.median(angular_errors)
+            print("########## Comparison by angular error: Mean is %s, Median is %s" % (mean_error, median_error))
             summary_writer.close()
 
 
