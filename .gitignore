@@ -3,5 +3,6 @@
 *.index
 *.data*
 checkpoint
+.idea/
 
 __pycache__/
