@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.contrib.layers import flatten
 
 mu = 0
-sigma = 0.1
+sigma = 0.01
 
 def hyp_net_inference(input):
     # Common Convolutional Layers
@@ -183,11 +183,12 @@ def angular_error(numerator, denominator):
     return loss
 
 def angular_error_scalar(output, labels):
+    print(output, labels)
     def dot_product(a, b):
         return np.sum(np.multiply(a, b))
     numerator = dot_product(output, labels)
     denominator = math.sqrt(dot_product(output, output)) * math.sqrt(dot_product(labels, labels))
-    return numerator / denominator
+    return math.acos(numerator / denominator)
 
 
 #####################################################################################
