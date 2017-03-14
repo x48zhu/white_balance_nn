@@ -11,13 +11,7 @@ from constants import *
 
 FLAGS = None
 
-learning_rate = 0.0001
-EPOCHS = 30
-BATCH_SIZE = 32
-PATCH_SIZE = (47, 47, 3)
-
 # The following operations are executed on patch basis. Ensure input X are in IMG_SIZE x IMG_SIZE patches
-
 
 # The following operation is only used for test data set to evaluate the global estimation on an whole image, in which
 # case the input patches X are from the same image.
@@ -48,11 +42,11 @@ def training(images, labels):
     assert (len(images) == len(labels))
     run_name = datetime.now().strftime("%I:%M%p on %B %d, %Y")
 
-    train_X, test_X, train_y, test_y = train_test_split(images, labels, test_size=0.8, random_state=0)
+    train_X, test_X, train_y, test_y = train_test_split(images, labels, test_size=FLAGS.test_percent, random_state=0)
 
     train_X, train_y = split_to_patches(train_X, train_y)
     print(train_X.shape)
-    train_X, val_X, train_y, val_y = train_test_split(train_X, train_y, test_size=0.2, random_state=0)
+    train_X, val_X, train_y, val_y = train_test_split(train_X, train_y, test_size=FLAGS.valid_percent, random_state=0)
     learning_rate = FLAGS.learning_rate
 
     # Prepare for training
@@ -177,13 +171,20 @@ def training(images, labels):
 
 def main(_):
     data_set_name = 'Canon5D'
-    images, labels = load_data(data_set_name)
+    images, labels = load_data(data_set_name, debug=FLAGS.debug)
     training(images, labels)
 
 
 if __name__ == "__main__":
     # Sequence of training between the two networks?
     parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--debug', 
+        action='store_true', 
+        default=False, 
+        help='Debug mode.')
+
     parser.add_argument(
         '--learning_rate',
         type=float,
@@ -210,6 +211,20 @@ if __name__ == "__main__":
         type=int,
         default=5,
         help='Number of epoch without improvement to early stop'
+    )
+
+    parser.add_argument(
+        '--test_percent',
+        type=int,
+        default=0.2,
+        help='Number of steps to run trainer.'
+    )
+
+    parser.add_argument(
+        '--valid_percent',
+        type=int,
+        default=0.2,
+        help='Number of steps to run trainer.'
     )
 
     FLAGS, unparsed = parser.parse_known_args()

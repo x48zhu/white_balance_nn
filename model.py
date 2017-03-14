@@ -6,6 +6,25 @@ from tensorflow.contrib.layers import flatten
 mu = 0
 sigma = 0.01
 
+def full_connect_layer(input_layer, branch_name=None):
+    name = 'Hyp_fc'
+    if branch_name:
+        name += '_' + branch_name
+    with tf.name_scope(name + '_1') as scope:
+        fc1A_W = tf.Variable(tf.truncated_normal(shape=(4096, 256), mean=mu, stddev=sigma), name="Weights")
+        fc1A_b = tf.Variable(tf.zeros(256), name="Bias")
+        fc1A = tf.matmul(input_layer, fc1A_W) + fc1A_b
+        fc1A = tf.nn.relu(fc1A)
+
+    with tf.name_scope(name + '_2') as scope:
+        fc2A_W = tf.Variable(tf.truncated_normal(shape=(256, 2), mean=mu, stddev=sigma), name="Weights")
+        fc2A_b = tf.Variable(tf.zeros(2), name="Bias")
+        output = tf.matmul(fc1A, fc2A_W) + fc2A_b
+        output = tf.nn.relu(output)
+
+    return output
+
+
 def hyp_net_inference(input):
     # Common Convolutional Layers
     # Layer 1: Input = 47x47x2, Output = 10x10x128

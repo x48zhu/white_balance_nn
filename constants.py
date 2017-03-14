@@ -13,4 +13,8 @@ check_ptr_dir = os.path.join(root_dir, 'save')
 if not os.path.exists(check_ptr_dir):
     os.makedirs(check_ptr_dir)
     
-PATCH_SIZE = (47, 47, 3)
+IMAGE_SIZE = [1460, 2193, 3]
+PATCH_SIZE = [47, 47, 3]
+
+# the size of the data set using under debug mode
+DEBUG_DATA_SIZE = 20

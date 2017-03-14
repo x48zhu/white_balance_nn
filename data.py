@@ -15,15 +15,18 @@ def _pre_process_image(image):
     return image
 
 
-def load_data(data_set):
+def load_data(data_set, debug=False):
     print("Loading images...")
     images = []
-    img_dir = os.path.join(data_dir, data_set, 'PNG')
-    for image_file in os.listdir(img_dir)[:20]:
-        # image = (scipy.io.loadmat(os.path.join(img_dir, image_file)))['img']
-        image = cv2.imread(os.path.join(img_dir, image_file))
+    img_dir = os.path.join(data_dir, data_set, 'NEW')
+    img_files = os.listdir(img_dir)
+    if debug:
+        img_files = img_files[:DEBUG_DATA_SIZE]
+    for img_file in img_files:
+        image = (scipy.io.loadmat(os.path.join(img_dir, img_file)))['img']
+        # image = cv2.imread(os.path.join(img_dir, img_file))
         # TODO: hardcode the image size here
-        image = np.reshape(image, [1460, 2193, 3])
+        image = np.reshape(image, IMAGE_SIZE)
         images.append(image)
 
     print("Loading labels...")
@@ -32,7 +35,9 @@ def load_data(data_set):
     data = []
     for row in csv_file_object:
         data.append([float(s) for s in row[-2:]])
-    return np.array(images), np.array(data[:20])
+    if debug:
+        data = data[:DEBUG_DATA_SIZE]
+    return np.array(images), np.array(data)
 
 
 def split_to_patches(X_data, y_data):
