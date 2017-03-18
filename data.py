@@ -5,6 +5,7 @@ import tensorflow as tf
 
 import cv2
 from constants import *
+from utils import logger
 
 
 def _pre_process_image(image):
@@ -16,7 +17,7 @@ def _pre_process_image(image):
 
 
 def load_data(data_set, debug=False):
-    print("Loading images...")
+    logger.info("Loading images...")
     images = []
     img_dir = os.path.join(data_dir, data_set, 'NEW')
     img_files = os.listdir(img_dir)
@@ -29,7 +30,7 @@ def load_data(data_set, debug=False):
         image = np.reshape(image, IMAGE_SIZE)
         images.append(image)
 
-    print("Loading labels...")
+    logger.info("Loading labels...")
     csv_file = open(os.path.join(data_dir, data_set + '.csv'), 'r')
     csv_file_object = csv.reader(csv_file)
     data = []
@@ -37,20 +38,23 @@ def load_data(data_set, debug=False):
         data.append([float(s) for s in row[-2:]])
     if debug:
         data = data[:DEBUG_DATA_SIZE]
+    logger.info("Number of images in use: %d" % len(images))
     return np.array(images), np.array(data)
 
 
 def split_to_patches(X_data, y_data):
     # Split images into patches, and repeat label accordingly
+    logger.info("Spliting images into patches...")
     with tf.Session() as sess:
-        print(X_data.shape, X_data.dtype)
         patches = tf.extract_image_patches(images=X_data,
                                            ksizes=[1, PATCH_SIZE[0], PATCH_SIZE[1], 1],
                                            strides=[1, PATCH_SIZE[0], PATCH_SIZE[1], 1],
                                            rates=[1, 1, 1, 1],
                                            padding="VALID").eval()
         num_train_X, num_patch_row, num_patch_col, depth = patches.shape
+        logger.debug("Dimension of patches before reshape: (%d, %d, %d, %d)" % (num_train_X, num_patch_row, num_patch_col, depth))
         patch_X = tf.reshape(patches,
                              [num_train_X * num_patch_row * num_patch_col, PATCH_SIZE[0], PATCH_SIZE[1], 3]).eval()
+        logger.debug("Dimension of patches after reshape: (%d, %d, %d, %d)" % patch_X.shape)
     patch_y = np.repeat(y_data, num_patch_row * num_patch_col, axis=0)
     return patch_X, patch_y

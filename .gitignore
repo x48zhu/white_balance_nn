@@ -1,3 +1,7 @@
+*.pyc
+
+data_dir
+
 .DS_Store
 *.meta
 *.index

@@ -1,10 +1,8 @@
-import math
-import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.layers import flatten
 
 mu = 0
-sigma = 0.01
+sigma = 1
 
 def full_connect_layer(input_layer, branch_name=None):
     name = 'Hyp_fc'
@@ -47,30 +45,10 @@ def hyp_net_inference(input):
     fc0 = flatten(conv2)
 
     # Branch A Full Connected Layer
-    with tf.name_scope('Hyp_fc_A_1') as scope:
-        fc1A_W = tf.Variable(tf.truncated_normal(shape=(4096, 256), mean=mu, stddev=sigma), name="Weights")
-        fc1A_b = tf.Variable(tf.zeros(256), name="Bias")
-        fc1A = tf.matmul(fc0, fc1A_W) + fc1A_b
-        fc1A = tf.nn.relu(fc1A)
-
-    with tf.name_scope('Hyp_fc_A_2') as scope:
-        fc2A_W = tf.Variable(tf.truncated_normal(shape=(256, 2), mean=mu, stddev=sigma), name="Weights")
-        fc2A_b = tf.Variable(tf.zeros(2), name="Bias")
-        outputA = tf.matmul(fc1A, fc2A_W) + fc2A_b
-        outputA = tf.nn.relu(outputA)
+    outputA = full_connect_layer(fc0, branch_name='branch_A')
 
     # Branch B Full Connected Layer
-    with tf.name_scope('Hyp_fc_B_1') as scope:
-        fc1B_W = tf.Variable(tf.truncated_normal(shape=(4096, 256), mean=mu, stddev=sigma), name="Weights")
-        fc1B_b = tf.Variable(tf.zeros(256), name="Bias")
-        fc1B = tf.matmul(fc0, fc1B_W) + fc1B_b
-        fc1B = tf.nn.relu(fc1B)
-
-    with tf.name_scope('Hyp_fc_B_2') as scope:
-        fc2B_W = tf.Variable(tf.truncated_normal(shape=(256, 2), mean=mu, stddev=sigma), name="Weights")
-        fc2B_b = tf.Variable(tf.zeros(2), name="Bias")
-        outputB = tf.matmul(fc1B, fc2B_W) + fc2B_b
-        outputB = tf.nn.relu(outputB)
+    outputB = full_connect_layer(fc0, branch_name='branch_B')
 
     return outputA, outputB
 
@@ -200,14 +178,6 @@ def angular_error(numerator, denominator):
     with tf.name_scope('Angular_error') as scope:
         loss = tf.reduce_mean(tf.acos(tf.div(numerator, denominator)), name="Loss")
     return loss
-
-def angular_error_scalar(output, labels):
-    print(output, labels)
-    def dot_product(a, b):
-        return np.sum(np.multiply(a, b))
-    numerator = dot_product(output, labels)
-    denominator = math.sqrt(dot_product(output, output)) * math.sqrt(dot_product(labels, labels))
-    return math.acos(numerator / denominator)
 
 
 #####################################################################################
