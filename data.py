@@ -8,9 +8,7 @@ from constants import *
 from utils import logger
 
 
-def _pre_process_image(image):
-    # Convert to UV space
-    # (log(r/b), log(g/b)) ???
+def _normalize_image(image):
     image = np.stack((np.ma.log(image[:, :, 0] / image[:, :, 2]),
                       np.ma.log(image[:, :, 1] / image[:, :, 2]))).T
     return image

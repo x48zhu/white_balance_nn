@@ -1,8 +1,10 @@
+import math
 import tensorflow as tf
 from tensorflow.contrib.layers import flatten
 
 mu = 0
-sigma = 0.1
+# sigma = 1.0 / math.sqrt(NUM_FEATURES)
+sigma = 0.01
 
 def full_connect_layer(input_layer, name='Fc'):
     with tf.name_scope(name + '_1') as scope:
@@ -50,7 +52,7 @@ def hyp_net_inference(input):
 # Hypothesis network uses Euclidean loss
 def hyp_net_loss(output, labels):
     with tf.name_scope('Hyp_Loss') as scope:
-        loss = tf.reduce_mean(tf.square(tf.subtract(output, labels), name="Error_A"))
+        loss = tf.reduce_mean(tf.square(tf.subtract(output, labels), name="Square_loss"))
     return loss
 
 

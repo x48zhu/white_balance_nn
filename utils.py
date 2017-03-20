@@ -18,5 +18,6 @@ def angular_error_scalar(output, labels):
     def dot_product(a, b):
         return np.sum(np.multiply(a, b))
     numerator = dot_product(output, labels)
+    print(dot_product(output, output))
     denominator = math.sqrt(dot_product(output, output)) * math.sqrt(dot_product(labels, labels))
     return math.acos(numerator / denominator)

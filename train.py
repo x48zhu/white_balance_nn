@@ -142,6 +142,7 @@ def training(images, labels):
                 logger.info('Training HypNet...')
                 non_improve_count = 0
                 min_error = sys.maxsize
+                hyp_train_epoch = 0
                 for i in range(FLAGS.epochs):
                     train_X, train_y = shuffle(train_X, train_y)
                     for j in range(num_batches_per_epoch):
@@ -161,7 +162,8 @@ def training(images, labels):
                     if non_improve_count > FLAGS.early_stop_threshold:
                         break
 
-                    summary_writer.add_summary(summary, i)
+                    hyp_train_epoch += 1
+                    summary_writer.add_summary(summary, hyp_train_epoch)
                 a, b = sess.run([outputA, outputB], feed_dict={X: val_X, y: val_y})
                 logger.info("%s \n%s" % (a, b))
 
@@ -197,7 +199,7 @@ def training(images, labels):
                     if non_improve_count > FLAGS.early_stop_threshold:
                         break
 
-                    summary_writer.add_summary(summary, i)
+                    summary_writer.add_summary(summary, i + hyp_train_epoch)
                 saver.save(sess, check_ptr_dir)
                 # Check on the patch output on one test image
                 # Cannot feed value of shape (1460, 2193, 3) for Tensor 'Images:0', which has shape '(?, 47, 47, 3)'
