@@ -1,13 +1,15 @@
 import argparse
-import os.path
+from datetime import datetime
+import logging
 import numpy as np
+import os.path
 import sys
 import tensorflow as tf
 import time
 
 import simple.model as model
 from simple.data import load_data
-from utils import logger
+from utils import logger, angular_error_scalar
 from simple.constants import log_dir
 
 FLAGS = None
@@ -46,7 +48,7 @@ def do_eval(sess,
                                    labels_placeholder)
         angular_error_value += sess.run(eval_correct, feed_dict=feed_dict)
     precision = angular_error_value / num_examples
-    logger.info('%s Angular error: %0.04f' % (data_set_name, precision))
+    logger.info('%s Error: %0.04f' % (data_set_name, precision))
 
 
 def run_training(debug=False):
@@ -55,6 +57,7 @@ def run_training(debug=False):
     Args:
         debug: debug mode
     """
+    run_name = datetime.now().strftime("%I:%M%p on %B %d, %Y")
     data_sets = load_data(FLAGS.data_set_name, FLAGS.valid_percent,
                           FLAGS.test_percent, debug)
 
@@ -83,7 +86,8 @@ def run_training(debug=False):
         logger.info("Training...")
         with tf.Session() as sess:
             # Instantiate a SummaryWriter to output summaries and the Graph.
-            summary_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
+            summary_writer = tf.summary.FileWriter(
+                os.path.join(FLAGS.log_dir, run_name), sess.graph)
             sess.run(init)
 
             non_improve_count = 0
@@ -99,7 +103,7 @@ def run_training(debug=False):
 
                 duration = time.time() - start_time
 
-                print('Step %d: square mean loss = %.2f (%.3f sec)' % (
+                logger.info('Step %d: square mean loss = %.2f (%.3f sec)' % (
                     step, loss_value, duration))
                 # Update the events file.
                 summary_str = sess.run(summary, feed_dict=feed_dict)
@@ -146,15 +150,16 @@ def run_training(debug=False):
                                            batch_size=data_sets.test.num_examples)
                 predict = sess.run(output, feed_dict=feed_dict)
                 ground_truth = data_sets.test.labels
-                diff = predict - ground_truth
-                print(np.dstack((predict, ground_truth)))
-                print(diff)
+                avg_angular_error = angular_error_scalar(predict, ground_truth)
+                logger.info("%f" % avg_angular_error)
 
 
 def main(_):
     if tf.gfile.Exists(FLAGS.log_dir):
         tf.gfile.DeleteRecursively(FLAGS.log_dir)
     tf.gfile.MakeDirs(FLAGS.log_dir)
+    if FLAGS.debug:
+        logger.setLevel(logging.DEBUG)
     run_training(FLAGS.debug)
 
 
@@ -206,12 +211,6 @@ if __name__ == '__main__':
         type=str,
         default=log_dir,
         help='Directory to put the log data.'
-    )
-    parser.add_argument(
-        '--fake_data',
-        default=False,
-        help='If true, uses fake data for unit testing.',
-        action='store_true'
     )
     parser.add_argument(
         '--test_percent',

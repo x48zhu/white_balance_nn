@@ -79,7 +79,7 @@ def training(sqaure_mean_loss, learning_rate):
 
 
 def evaluation(output, labels):
-    """Evaluate the quality of the logits at predicting the label.
+    """Evaluate the quality of the illuminant estimation.
 
     Args:
       output: output tensor, float - [batch_size, 2].
@@ -94,6 +94,7 @@ def evaluation(output, labels):
         denominator = tf.multiply(
             tf.sqrt(tf.reduce_sum(tf.multiply(output, output), axis=1)),
             tf.sqrt(tf.reduce_sum(tf.multiply(labels, labels), axis=1)))
-        angular_loss = tf.reduce_mean(tf.acos(tf.div(numerator, denominator)),
-                                      name="Angular_loss")
+        angular_loss = tf.reduce_mean(
+            tf.acos(tf.minimum(tf.div(numerator, denominator), 1)),
+            name="Angular_loss")
     return angular_loss

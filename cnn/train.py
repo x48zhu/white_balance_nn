@@ -3,9 +3,9 @@ import sys
 import time
 from datetime import datetime
 
-import model_single
-from constants import *
-from data import *
+import cnn.model_single as model_single
+from cnn.constants import *
+from cnn.data import *
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
