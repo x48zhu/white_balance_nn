@@ -1,14 +1,15 @@
 import argparse
-from datetime import datetime
-from sklearn.utils import shuffle
-from sklearn.model_selection import train_test_split
 import sys
 import time
+from datetime import datetime
 
-from data import *
-import model_branch
 import model_single
 from constants import *
+from data import *
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+
+from cnn import model_branch
 from utils import logger, angular_error_scalar
 
 FLAGS = None
@@ -45,32 +46,26 @@ def training(images, labels):
     run_name = datetime.now().strftime("%I:%M%p on %B %d, %Y")
 
     train_X, test_X, train_y, test_y = train_test_split(images, labels, test_size=FLAGS.test_percent, random_state=0)
-
     train_X, train_y = split_to_patches(train_X, train_y)
     train_X, val_X, train_y, val_y = train_test_split(train_X, train_y, test_size=FLAGS.valid_percent, random_state=0)
+
     learning_rate = FLAGS.learning_rate
-
-    # Prepare for training
-
-    num_batches_per_epoch = len(train_X) // FLAGS.batch_size
     logger.info("learning rate: {0}".format(learning_rate))
+    # Prepare for training
+    num_batches_per_epoch = len(train_X) // FLAGS.batch_size
 
     with tf.Graph().as_default():
 
-        # Defining graph node
-
-        X = tf.placeholder(tf.float32, (None, PATCH_SIZE[0], PATCH_SIZE[1], 3), name="Images")
-        y = tf.placeholder(tf.float32, (None, 2), name="Labels")
-        ground_truth_score = tf.placeholder(tf.float32, (None, 2), name="Ground_Truth_Score")
-        global_step = tf.get_variable('global_step', [], trainable=False, initializer=tf.constant_initializer(0))
-        saver = tf.train.Saver()
+        image_placeholder = tf.placeholder(tf.float32, (None, PATCH_SIZE[0], PATCH_SIZE[1], PATCH_SIZE[2]), name="Images")
+        label_placeholder = tf.placeholder(tf.float32, (None, 2), name="Labels")
 
         if FLAGS.model == 'single':
-            output = model_single.hyp_net_inference(X)
-            loss = model_single.hyp_net_loss(output, y)
+            output = model_single.hyp_net_inference(image_placeholder)
+            loss = model_single.hyp_net_loss(output, label_placeholder)
             train_op = model_single.hyp_net_training(loss, learning_rate)
-            output_patch = model_single.hyp_net_inference(X)
+            output_patch = model_single.hyp_net_inference(image_placeholder)
             init = tf.global_variables_initializer()
+            saver = tf.train.Saver()
 
             # Summaries
             tf.summary.scalar("Training_Loss", loss)
@@ -89,10 +84,12 @@ def training(images, labels):
                         offset = j * FLAGS.batch_size
                         batch_X, batch_y = train_X[offset:offset + FLAGS.batch_size], \
                                            train_y[offset:offset + FLAGS.batch_size]
-                        _, summary = sess.run([train_op, merged],
-                                              feed_dict={X: batch_X, y: batch_y, ground_truth_score: batch_y})
+                        _, loss_value, summary = sess.run([train_op, loss, merged],
+                                              feed_dict={image_placeholder: batch_X, label_placeholder: batch_y})
+                        loss_value = loss_value.item()  # convert to float
+                        logger.info("Training loss: %f" % (loss_value))
 
-                    loss_value = sess.run(loss, feed_dict={X: val_X, y: val_y})
+                    loss_value = sess.run(loss, feed_dict={image_placeholder: val_X, label_placeholder: val_y})
                     loss_value = loss_value.item()  # convert to float
                     logger.info("Epoch: %d, Validation loss: %f" % (i + 1, loss_value))
                     if loss_value < min_error:
@@ -108,7 +105,7 @@ def training(images, labels):
                 angular_errors = []
                 for i in range(len(test_X)):
                     patches, labels = split_to_patches(np.asarray([test_X[i]]), np.asarray([test_y[i]]))
-                    local_estimation = sess.run(output_patch, feed_dict={X: patches, y: labels})
+                    local_estimation = sess.run(output_patch, feed_dict={image_placeholder: patches, label_placeholder: labels})
                     angular_loss = angular_error_scalar(local_estimation, labels)
                     angular_errors.append(angular_loss)
                 mean_error = np.mean(angular_errors)
@@ -117,18 +114,21 @@ def training(images, labels):
                 summary_writer.close()
 
         elif FLAGS.model == 'multiple':
-            outputA, outputB = model_branch.hyp_net_inference(X)
-            hyp_loss = model_branch.hyp_net_loss(outputA, outputB, y)
-            hyp_train_op = model_branch.hyp_net_training(hyp_loss, learning_rate)
-            hyp_eval_correct = model_branch.hyp_net_evaluation(outputA, outputB, y)
-            calc_gt_score = model_branch.calc_ground_truth_score(outputA, outputB, y)
+            ground_truth_score = tf.placeholder(tf.float32, (None, 2), name="Ground_Truth_Score")
 
-            output_sel = model_branch.sel_net_inference(X)
+            outputA, outputB = model_branch.hyp_net_inference(image_placeholder)
+            hyp_loss = model_branch.hyp_net_loss(outputA, outputB, label_placeholder)
+            hyp_train_op = model_branch.hyp_net_training(hyp_loss, learning_rate)
+            hyp_eval_correct = model_branch.hyp_net_evaluation(outputA, outputB, label_placeholder)
+            calc_gt_score = model_branch.calc_ground_truth_score(outputA, outputB, label_placeholder)
+
+            output_sel = model_branch.sel_net_inference(image_placeholder)
             sel_loss = model_branch.sel_net_loss(output_sel, ground_truth_score)
             sel_train_op = model_branch.sel_net_training(sel_loss, learning_rate)
             sel_eval_correct = model_branch.sel_net_loss(output_sel, ground_truth_score)
             output_patch = model_branch.inference(outputA, outputB, output_sel)
             init = tf.global_variables_initializer()
+            saver = tf.train.Saver()
 
             # Summaries
             tf.summary.scalar("Hyp_Training_Loss", hyp_loss)
@@ -150,8 +150,8 @@ def training(images, labels):
                         batch_X, batch_y = train_X[offset:offset + FLAGS.batch_size], \
                                            train_y[offset:offset + FLAGS.batch_size]
                         _, summary = sess.run([hyp_train_op, merged],
-                                              feed_dict={X: batch_X, y: batch_y, ground_truth_score: batch_y})
-                    loss_value = sess.run(hyp_eval_correct, feed_dict={X: val_X, y: val_y})
+                                              feed_dict={image_placeholder: batch_X, label_placeholder: batch_y, ground_truth_score: batch_y})
+                    loss_value = sess.run(hyp_eval_correct, feed_dict={image_placeholder: val_X, label_placeholder: val_y})
                     loss_value = loss_value.item()  # convert to float
                     logger.info("Epoch: %d, Hyp Validation loss: %f" % (i + 1, loss_value))
 
@@ -164,7 +164,7 @@ def training(images, labels):
 
                     hyp_train_epoch += 1
                     summary_writer.add_summary(summary, hyp_train_epoch)
-                a, b = sess.run([outputA, outputB], feed_dict={X: val_X, y: val_y})
+                a, b = sess.run([outputA, outputB], feed_dict={image_placeholder: val_X, label_placeholder: val_y})
                 logger.info("%s \n%s" % (a, b))
 
                 # Cannot feed value of shape (1, 1460, 2193, 3) for Tensor 'Images:0', which has shape '(?, 47, 47, 3)'
@@ -175,8 +175,8 @@ def training(images, labels):
                 logger.info('Training SelNet...')
                 non_improve_count = 0
                 min_error = sys.maxsize
-                gt_score_train = sess.run(calc_gt_score, feed_dict={X: train_X, y: train_y})
-                gt_score_val = sess.run(calc_gt_score, feed_dict={X: val_X, y: val_y})
+                gt_score_train = sess.run(calc_gt_score, feed_dict={image_placeholder: train_X, label_placeholder: train_y})
+                gt_score_val = sess.run(calc_gt_score, feed_dict={image_placeholder: val_X, label_placeholder: val_y})
                 for i in range(FLAGS.epochs):
                     train_X, gt_score_train = shuffle(train_X, gt_score_train)
                     for j in range(num_batches_per_epoch):
@@ -185,10 +185,10 @@ def training(images, labels):
                         batch_X, batch_gt_score = train_X[offset:offset + FLAGS.batch_size], \
                                                   gt_score_train[offset:offset + FLAGS.batch_size]
                         _, summary = sess.run([sel_train_op, merged],
-                                              feed_dict={X: batch_X, y: batch_gt_score, ground_truth_score: batch_gt_score})
+                                              feed_dict={image_placeholder: batch_X, label_placeholder: batch_gt_score, ground_truth_score: batch_gt_score})
                         duration = time.time() - start_time
                     loss_value = sess.run(sel_eval_correct,
-                                          feed_dict={X: val_X, y: gt_score_val, ground_truth_score: gt_score_val})
+                                          feed_dict={image_placeholder: val_X, label_placeholder: gt_score_val, ground_truth_score: gt_score_val})
                     loss_value = loss_value.item()  # convert to float
                     logger.info("Epoch: %d, Sel Validation loss: %f" % (i + 1, loss_value))
 
@@ -210,7 +210,7 @@ def training(images, labels):
                 angular_errors = []
                 for i in range(len(test_X)):
                     patches, labels = split_to_patches(np.asarray([test_X[i]]), np.asarray([test_y[i]]))
-                    local_estimation = sess.run(output_patch, feed_dict={X: patches, y: labels})
+                    local_estimation = sess.run(output_patch, feed_dict={image_placeholder: patches, label_placeholder: labels})
                     angular_loss = angular_error_scalar(local_estimation, labels)
                     angular_errors.append(angular_loss)
                 mean_error = np.mean(angular_errors)

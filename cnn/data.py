@@ -1,10 +1,10 @@
 import csv
+
 import numpy as np
 import scipy.io
 import tensorflow as tf
 
-import cv2
-from constants import *
+from cnn.constants import *
 from utils import logger
 
 
@@ -17,12 +17,13 @@ def _normalize_image(image):
 def load_data(data_set, debug=False):
     logger.info("Loading images...")
     images = []
-    img_dir = os.path.join(data_dir, data_set, 'NEW')
+    img_dir = os.path.join(data_dir, data_set, 'PNG')
     img_files = os.listdir(img_dir)
     if debug:
         img_files = img_files[:DEBUG_DATA_SIZE]
     for img_file in img_files:
         image = (scipy.io.loadmat(os.path.join(img_dir, img_file)))['img']
+        print(image.shape)
         # image = cv2.imread(os.path.join(img_dir, img_file))
         # TODO: hardcode the image size here
         image = np.reshape(image, IMAGE_SIZE)
@@ -52,7 +53,7 @@ def split_to_patches(X_data, y_data):
         num_train_X, num_patch_row, num_patch_col, depth = patches.shape
         logger.debug("Dimension of patches before reshape: (%d, %d, %d, %d)" % (num_train_X, num_patch_row, num_patch_col, depth))
         patch_X = tf.reshape(patches,
-                             [num_train_X * num_patch_row * num_patch_col, PATCH_SIZE[0], PATCH_SIZE[1], 3]).eval()
+                             [num_train_X * num_patch_row * num_patch_col, PATCH_SIZE[0], PATCH_SIZE[1], PATCH_SIZE[2]]).eval()
         logger.debug("Dimension of patches after reshape: (%d, %d, %d, %d)" % patch_X.shape)
     patch_y = np.repeat(y_data, num_patch_row * num_patch_col, axis=0)
     return patch_X, patch_y
