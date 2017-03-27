@@ -11,7 +11,8 @@ def load_data(data_set_name, valid_percent=0.2, test_percent=0.2, debug=False):
     features = []
     labels = []
     # Load features and labels
-    csv_file = open(os.path.join(data_dir, data_set_name + '.csv'), 'r')
+    csv_file = open(os.path.join(data_dir, "Cheng-Prasad-Brown", data_set_name + '.csv'), 'r')
+    # csv_file = open(os.path.join(data_dir, data_set_name + '.csv'), 'r')
     csv_file_object = csv.reader(csv_file)
 
     for row in csv_file_object:
@@ -95,6 +96,7 @@ class DataSets(object):
                              train_labels,
                              test_size=valid_percent,
                              random_state=0)
+        print(val_features.shape)
         self.train = DataSet(np.array(train_features), np.array(train_labels))
         self.valid = DataSet(np.array(val_features), np.array(val_labels))
         self.test = DataSet(np.array(test_features), np.array(test_labels))

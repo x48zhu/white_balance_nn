@@ -40,8 +40,12 @@ def do_eval(sess,
     """
     # And run one epoch of eval.
     angular_error_value = 0  # Counts the number of correct predictions.
-    steps_per_epoch = data_set.num_examples // FLAGS.batch_size
-    num_examples = steps_per_epoch * FLAGS.batch_size
+    if data_set.num_examples < FLAGS.batch_size:
+        steps_per_epoch = 1
+        num_examples = data_set.num_examples
+    else:
+        steps_per_epoch = data_set.num_examples // FLAGS.batch_size
+        num_examples = steps_per_epoch * FLAGS.batch_size
     for step in range(steps_per_epoch):
         feed_dict = fill_feed_dict(data_set,
                                    images_placeholder,
@@ -203,7 +207,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--data_set_name',
         type=str,
-        default='Canon5D',
+            default='Canon5D',
         help='Directory to put the input data.'
     )
     parser.add_argument(

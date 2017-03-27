@@ -15,9 +15,19 @@ def _normalize_image(image):
 
 
 def load_data(data_set, debug=False):
+    """
+    Load image data and labels.
+    TODO: some
+    Args:
+        data_set:
+        debug:
+
+    Returns:
+
+    """
     logger.info("Loading images...")
     images = []
-    img_dir = os.path.join(data_dir, data_set, 'PNG')
+    img_dir = os.path.join(data_dir, data_set, 'NEW')
     img_files = os.listdir(img_dir)
     if debug:
         img_files = img_files[:DEBUG_DATA_SIZE]
@@ -42,7 +52,15 @@ def load_data(data_set, debug=False):
 
 
 def split_to_patches(X_data, y_data):
-    # Split images into patches, and repeat label accordingly
+    """
+    Split images into patches
+    Args:
+        X_data: numpy array for the images to split
+        y_data: ground truth for the each image
+
+    Returns:
+
+    """
     logger.info("Spliting images into patches...")
     with tf.Session() as sess:
         patches = tf.extract_image_patches(images=X_data,

@@ -4,14 +4,14 @@ from tensorflow.contrib.layers import flatten
 
 mu = 0
 # sigma = 1.0 / math.sqrt(NUM_FEATURES)
-sigma = 0.02
+sigma = 0.2
 
 
 def hyp_net_inference(input):
     # Common Convolutional Layers
     # Layer 1: Input = 47x47x2, Output = 10x10x128
     with tf.name_scope('Conv_1') as scope:
-        conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 25, 3, 6), mean=mu, stddev=sigma), name="Weights")
+        conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 3, 6), mean=mu, stddev=sigma), name="Weights")
         conv1_b = tf.Variable(tf.zeros(6), name="Bias")
         conv1 = tf.nn.conv2d(input, conv1_W, strides=(1, 1, 1, 1), padding='VALID') + conv1_b
         conv1 = tf.nn.relu(conv1)
@@ -28,7 +28,7 @@ def hyp_net_inference(input):
     # Flatten: Input = 4x4x256, Output = 4096
     fc0 = flatten(conv2)
 
-    # Full Connected Layer
+    # Full Connected Layers
     with tf.name_scope('Fc_1') as scope:
         fc1_W = tf.Variable(tf.truncated_normal(shape=(400, 120), mean=mu, stddev=sigma), name="Weights")
         fc1_b = tf.Variable(tf.zeros(120), name="Bias")
@@ -58,7 +58,7 @@ def hyp_net_loss(output, labels):
 
 
 def hyp_net_training(loss, learning_rate):
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(loss)
     return train_op
 

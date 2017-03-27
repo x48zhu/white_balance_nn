@@ -27,7 +27,6 @@ def angular_error_scalar(output, labels, debug=False):
     # output_norm = np.sqrt(dot_product(output, output))
     # labels_norm = np.sqrt(dot_product(labels, labels))
     # denominator = np.multiply(output_norm, labels_norm)
-    # print(output.shape)
     # temp = np.dstack((output, labels))
     # print(temp.shape, numerator.shape, output_norm.shape, denominator.shape)
     # temp = np.dstack((temp, numerator, output_norm, labels_norm, denominator))
@@ -36,12 +35,21 @@ def angular_error_scalar(output, labels, debug=False):
 
     angular_errors = []
     for i in range(len(output)):
-        num = np.dot(output[i], labels[i])
-        # print(output[i], labels[i])
-        # print(np.dot(output[i], output[i]))
-        denum = math.sqrt(np.dot(output[i], output[i])) * \
-                math.sqrt(np.dot(labels[i], labels[i]))
+        # num = np.dot(output[i], labels[i])
+        num = output[i][0] * labels[i][0] + \
+              output[i][1] * labels[i][1] + \
+              output[i][2] * labels[i][2]
+        # denum = math.sqrt(np.dot(output[i], output[i])) * \
+        #         math.sqrt(np.dot(labels[i], labels[i]))
+        left = math.sqrt(output[i][0] * output[i][0] + \
+                          output[i][1] * output[i][1] + \
+                          output[i][2] * output[i][2])
+        right = math.sqrt(labels[i][0] * labels[i][0] + \
+                          labels[i][1] * labels[i][1] + \
+                          labels[i][2] * labels[i][2])
+        denum = left * right
+
         angular_error = math.acos(min(num / denum, 1))
-        # print(num, denum, angular_error)
+        # print(output[i], labels[i], num, denum, angular_error)
         angular_errors.append(angular_error)
-    return np.mean(np.array(angular_errors))
+    return np.mean(np.array(angular_errors) * 180 / math.pi)
